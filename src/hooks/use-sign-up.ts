@@ -9,12 +9,17 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { onCompleteUserRegistration } from '@/app/auth';
 
 export const useSignUpform = () => {
   const { toast } = useToast();
+
   const [loading, setLoading] = useState<boolean>(false);
+
   const { signUp, isLoaded, setActive } = useSignUp();
+
   const router = useRouter();
+
   const methods = useForm<UserRegistrationProps>({
     resolver: zodResolver(UserRegistrationSchema),
     defaultValues: {
@@ -42,43 +47,44 @@ export const useSignUpform = () => {
       });
     }
   };
+
   const onHandleSubmit = methods.handleSubmit(
     async (values: UserRegistrationProps) => {
-      if(!isLoaded) return 
+      if (!isLoaded) return;
       try {
-        setLoading(true)
+        setLoading(true);
         const completeSignUp = await signUp.attemptEmailAddressVerification({
           code: values.otp,
-        })
+        });
 
-        if(completeSignUp.status !== 'complete') {
-          return {message: 'Something went wrong!'}
+        if (completeSignUp.status !== 'complete') {
+          return { message: 'Something went wrong!' };
         }
 
         if (completeSignUp.status == 'complete') {
-          if (!signUp.createdUserId) return
+          if (!signUp.createdUserId) return;
 
           const registered = await onCompleteUserRegistration(
             values.fullname,
             signUp.createdUserId,
             values.type
-          )
+          );
           if (registered?.status == 200 && registered.user) {
             await setActive({
-              session: completeSignUp.createdSessionId
-            })
-            setLoading(true)
-            router.push('/dashboard')
+              session: completeSignUp.createdSessionId,
+            });
+            setLoading(true);
+            router.push('/dashboard');
           }
 
-          if(registered?.status == 400) {
+          if (registered?.status == 400) {
             toast({
               title: 'Error',
-              description: 'Something went wrong!'
-            })
+              description: 'Something went wrong!',
+            });
           }
         }
-      }
+      } catch (error) {}
     }
-  )
+  );
 };
